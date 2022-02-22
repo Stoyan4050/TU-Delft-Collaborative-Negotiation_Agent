@@ -1,3 +1,7 @@
 .venv
 .vscode
 __pycache__
+
+# ignote log files and the results from running
+*.log
+results/
