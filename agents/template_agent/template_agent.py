@@ -129,7 +129,18 @@ class TemplateAgent(DefaultParty):
 
         # very basic approach that accepts if the offer is valued above 0.6 and
         # 80% of the rounds towards the deadline have passed
-        return profile.getUtility(bid) > 0.6 and progress > 0.8
+        #return profile.getUtility(bid) > 0.6 and progress > 0.8
+
+        if profile.getUtility(bid) > 0.9:
+            return True
+
+        if progress > 0.6:
+            if profile.getUtility(bid) > 0.95 - 0.3 * progress:
+                return True
+        elif self._last_received_bid is not None and (0.8 - float(profile.getUtility(self._last_received_bid))*0.1 <= profile.getUtility(bid) or profile.getUtility(bid) >= 0.7):
+                return True
+
+        return False
 
     def _findBid(self) -> Bid:
         # compose a list of all possible bids
