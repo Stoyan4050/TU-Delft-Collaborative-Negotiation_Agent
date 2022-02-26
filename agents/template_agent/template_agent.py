@@ -129,12 +129,25 @@ class TemplateAgent(DefaultParty):
 
         # very basic approach that accepts if the offer is valued above 0.6 and
         # 80% of the rounds towards the deadline have passed
-        return profile.getUtility(bid) > 0.6 and progress > 0.8
+        return profile.getUtility(bid) > (0.6 + 0.3 * (1 - progress))
 
     def _findBid(self) -> Bid:
         # compose a list of all possible bids
         domain = self._profile.getProfile().getDomain()
         all_bids = AllBidsList(domain)
+
+        progress = self._progress.get(0)
+
+        if progress == 0:
+            profile = self._profile.getProfile()
+
+            bids_with_utility = []
+
+            for bid in all_bids:
+                bids_with_utility.append((bid, profile.getUtility(bid)))
+            bids_with_utility = sorted(bids_with_utility, key=lambda item: -item[1])
+            return bids_with_utility[0][0]
+
 
         # take 50 attempts at finding a random bid that is acceptable to us
         for _ in range(50):
