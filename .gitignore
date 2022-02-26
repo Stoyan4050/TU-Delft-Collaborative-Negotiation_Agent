@@ -5,3 +5,7 @@ __pycache__
 # ignote log files and the results from running
 *.log
 results/
+
+# ignore ide stuff
+.idea/
+*.swp
