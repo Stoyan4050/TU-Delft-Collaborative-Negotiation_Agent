@@ -34,6 +34,9 @@ class AgentGosho(DefaultParty):
         self._last_received_bid: Bid = None
         self.latest_bid: Bid = None
         self.all_bids = []
+        self.opponent_preferences = []
+        self.opponent_value_count = {}
+        self.all_good_bids = []
 
     def notifyChange(self, info: Inform):
         """This is the entry point of all interaction with your agent after is has been initialised.
@@ -104,16 +107,39 @@ class AgentGosho(DefaultParty):
     def getDescription(self) -> str:
         return "Template agent for Collaborative AI course"
 
+    def update_opponent_counts(self):
+        lrb = self._last_received_bid
+        domain = self._profile.getProfile().getDomain()
+        # for issue in lrb.getIssues():
+        #     self.opponent_value_count[issue][lrb.getValue(issue)] += 1
+
     # execute a turn
     def _myTurn(self):
         profile = self._profile.getProfile()
+
+        # Initial setup
+        if self._progress.get(0) == 0:
+            issues = profile.getDomain().getIssues()
+            for issue in issues:
+                self.opponent_value_count[issue] = {}
+                for value in profile.getDomain().getValues(issue):
+                    self.opponent_value_count[issue][value] = 0
+
+        if self._last_received_bid is not None:
+            self.update_opponent_counts()
+
+        print(self.is_opponent_repeating_bids())
+
+        if self._progress.get(0) == 0.5:
+            print('halfway there', self.opponent_value_count)
         # check if the last received offer if the opponent is good enough
         if self._isGood(self._last_received_bid):
             # if so, accept the offer
             action = Accept(self._me, self._last_received_bid)
         else:
             # if not, find a bid to propose as counter offer
-            self.all_bids.append((self._last_received_bid, profile.getUtility(self._last_received_bid)))
+            if self._last_received_bid is not None:
+                self.all_bids.append((self._last_received_bid, profile.getUtility(self._last_received_bid)))
 
             bid = self._findBid()
             action = Offer(self._me, bid)
@@ -131,20 +157,25 @@ class AgentGosho(DefaultParty):
             self.latest_bid = self.get_highest_bid()
 
         profile = self._profile.getProfile()
+        progress = self._progress.get(0)
 
-        bid_utility_sent = profile.getUtility(self.latest_bid)
-        bid_utility_received = profile.getUtility(bid)
-
-        if bid_utility_received >= 0.95 * float(bid_utility_sent):
-            print("Accepted Bid-----------------------------1", bid)
+        if profile.getUtility(bid) > 0.9:
             return True
-        # elif bid_utility_received >= 0.9 * float(bid_utility_sent):
-        #     print("Accepted Bid-----------------------------2", bid)
-        #     return True
 
-        # very basic approach that accepts if the offer is valued above 0.6 and
-        # 80% of the rounds towards the deadline have passed
+        if progress > 0.6:
+            if profile.getUtility(bid) > 0.95 - 0.3 * progress:
+                return True
+        elif self._last_received_bid is not None and (0.8 - float(profile.getUtility(self._last_received_bid))*0.1 <= profile.getUtility(bid) or profile.getUtility(bid) >= 0.7):
+                return True
         return False
+
+    def find_all_good_bids(self):
+        domain = self._profile.getProfile().getDomain()
+        all_bids = AllBidsList(domain)
+
+        for bid in all_bids:
+            if self._isGood(bid):
+                self.all_good_bids.append(bid)
 
     def _findBid(self) -> Bid:
         progress = self._progress.get(0)
@@ -154,16 +185,20 @@ class AgentGosho(DefaultParty):
         utilities = self._profile.getProfile().getUtilities()
 
         not_important_issues, middle_issues = self.not_important_issues()
-        print(not_important_issues, "Not important issues")
-        print(middle_issues, "Middle issues")
+        # print(not_important_issues, "Not important issues")
+        # print(middle_issues, "Middle issues")
 
         if self._last_received_bid is not None:
+
+            if len(self.opponent_preferences) == 0:
+                self.get_opponent_preference()
+
             # Values for issues
             opponent_issues = self._last_received_bid.getIssueValues()
             last_values = self.latest_bid.getIssueValues()
+            bid_issues = last_values
 
-            bid_issues = {}
-            for issue in opponent_issues:
+            for issue in last_values:
                 # get the value for issue
                 # value = opponent_issues.get(issue)
                 # float(utilities.get(issue).getUtility(opponent_issues.get(issue))) < 0.5:
@@ -172,16 +207,27 @@ class AgentGosho(DefaultParty):
                     bid_issues[issue] = opponent_desired_bid[issue]
                 else:
                     suggested_val = (1 - progress / 3) * float(utilities.get(issue).getUtility(last_values.get(issue)))
+                    prev_bid_issue_value = bid_issues[issue]
                     bid_issues[issue] = self.search_for_value(suggested_val, issue)
-
-            print(bid_issues, "Bidding")
+                    if not self._isGood(Bid(bid_issues)):
+                        bid_issues[issue] = prev_bid_issue_value
+            # print(bid_issues, "Bidding")
             bid = Bid(bid_issues)
             print("Bid utility------------", self._profile.getProfile().getUtility(bid))
+        # When we have not received a bid, offer highest preference
         else:
             self.latest_bid = self.get_highest_bid()
             bid = self.get_highest_bid()
 
         return bid
+
+    def is_opponent_repeating_bids(self):
+        if len(self.all_bids) >= 5:
+            for i in range(1, 5):
+                if self.all_bids[-i] != self.all_bids[-i - 1]:
+                    return False
+            return True
+        return False
 
     def get_highest_bid(self):
         domain = self._profile.getProfile().getDomain()
@@ -195,25 +241,32 @@ class AgentGosho(DefaultParty):
         bids_with_utility = sorted(bids_with_utility, key=lambda item: -item[1])
         return bids_with_utility[0][0]
 
-    def search_for_value(self, val, issue):
+    def search_for_value(self, suggeseted_value_utility, issue):
         max_val = 1
         desired_value = ""
         utilities = self._profile.getProfile().getUtilities()
-        domain = self._profile.getProfile().getDomain().getValues(issue)
-        for v in domain:
-            value = utilities.get(issue).getUtility(v)
-            if val <= value and value <= max_val:
+        all_values_for_issue = self._profile.getProfile().getDomain().getValues(issue)
+
+        for v in all_values_for_issue:
+            value_utility = utilities.get(issue).getUtility(v)
+            if suggeseted_value_utility <= value_utility and value_utility <= max_val:
                 desired_value = v
-                max_val = value
+                max_val = value_utility
         return desired_value
+
+    def get_opponent_preference(self):
+        first_bid = self.all_bids[0][0]
+
+        for issue in first_bid.getIssues():
+            self.opponent_preferences.append((issue, first_bid.getValue(issue)))
 
     def get_opponent_info(self):
         prev_bids = self.all_bids
-
-        if len(prev_bids) < 10:
+        # print('prev_bids', prev_bids)
+        if len(prev_bids) < 15:
             return None
 
-        prev_bids.sort(key=lambda x: x[1])
+        # prev_bids.sort(key=lambda x: x[1])
         issues = self._last_received_bid.getIssues()
 
         demanded_best_offer = {}
