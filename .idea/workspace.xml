@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="30dfbd8e-e816-4eb9-8a56-3650bc4dfac9" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/agents/template_agent/template_agent.py" beforeDir="false" afterPath="$PROJECT_DIR$/agents/template_agent/template_agent.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/agents/template_agent/agent_gosho.py" beforeDir="false" afterPath="$PROJECT_DIR$/agents/template_agent/agent_gosho.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -61,6 +63,7 @@
       <updated>1645556710498</updated>
       <workItem from="1645556713483" duration="135000" />
       <workItem from="1645878525365" duration="9089000" />
+      <workItem from="1645981495480" duration="176000" />
     </task>
     <servers />
   </component>
