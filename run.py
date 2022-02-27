@@ -17,7 +17,7 @@ settings = {
         "agents.template_agent.agent_bat_gosho.AgentBatGosho",
         "agents.template_agent.agent_bat_gosho.AgentBatGosho",
     ],
-    "profiles": ["domains/domain00/profileA.json", "domains/domain00/profileB.json"],
+    "profiles": ["domains/domain01/profileA.json", "domains/domain00/profileB.json"],
     "deadline_rounds": 200,
 }
 
