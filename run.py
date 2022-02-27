@@ -14,7 +14,7 @@ if not os.path.exists("results"):
 #   We need to specify a deadline of amount of rounds we can negotiate before we end without agreement
 settings = {
     "agents": [
-        "agents.random_agent.random_agent.RandomAgent",
+        "agents.template_agent.agent_gosho.AgentGosho",
         "agents.template_agent.agent_gosho.AgentGosho",
     ],
     "profiles": ["domains/domain00/profileA.json", "domains/domain00/profileB.json"],
