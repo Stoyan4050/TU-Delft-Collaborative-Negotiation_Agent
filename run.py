@@ -15,7 +15,7 @@ if not os.path.exists("results"):
 settings = {
     "agents": [
         "agents.random_agent.random_agent.RandomAgent",
-        "agents.template_agent.template_agent.TemplateAgent",
+        "agents.template_agent.agent_gosho.AgentGosho",
     ],
     "profiles": ["domains/domain00/profileA.json", "domains/domain00/profileB.json"],
     "deadline_rounds": 200,

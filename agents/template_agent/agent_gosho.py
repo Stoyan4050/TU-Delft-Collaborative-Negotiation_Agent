@@ -18,8 +18,10 @@ from geniusweb.profileconnection.ProfileConnectionFactory import (
 )
 from geniusweb.progress.ProgressRounds import ProgressRounds
 
+# Agent Gosho e div selqnin i pravi nqkvi shano oferti koito ne rabotqt
+# osven ako drugiq agent ne e po prost selqnin ot Gosho
 
-class TemplateAgent(DefaultParty):
+class AgentGosho(DefaultParty):
     """
     Template agent that offers random bids until a bid with sufficient utility is offered.
     """
@@ -143,6 +145,7 @@ class TemplateAgent(DefaultParty):
     def _findBid(self) -> Bid:
         # compose a list of all possible bids
         domain = self._profile.getProfile().getDomain()
+        progress = self._progress.get(0)
 
         issues = domain.getIssues()
         weights = []
@@ -158,17 +161,17 @@ class TemplateAgent(DefaultParty):
 
         print(not_important_issues, "Not important issues")
         if self._last_received_bid is not None:
-            issues = self._last_received_bid.getIssueValues()
+            opponent_issues = self._last_received_bid.getIssueValues()
             last_values = self.latest_bid.getIssueValues()
 
             bid_issues = {}
-            for issue in issues:
-                value = issues.get(issue)
-                if float(utilities.get(issue).getUtility(value)) > 0.75 and issue in not_important_issues:
+            for issue in opponent_issues:
+                value = opponent_issues.get(issue)
+                if issue in not_important_issues and float(utilities.get(issue).getUtility(opponent_issues.get(issue))) < 0.5:
                     bid_issues[issue] = value
                 else:
-                    suggested_val = 0.9 * float(utilities.get(issue).getUtility(last_values.get(issue)))
-                    bid_issues[issue] = self.search_for_value(suggested_val)
+                    suggested_val = (1-progress/3) * float(utilities.get(issue).getUtility(last_values.get(issue)))
+                    bid_issues[issue] = self.search_for_value(suggested_val, issue)
 
             print(bid_issues, "Bidding")
             bid = Bid(bid_issues)
@@ -191,15 +194,14 @@ class TemplateAgent(DefaultParty):
         bids_with_utility = sorted(bids_with_utility, key=lambda item: -item[1])
         return bids_with_utility[0][0]
 
-    def search_for_value(self, val):
+    def search_for_value(self, val, issue):
         max_val = 1
         desired_value = ""
         utilities = self._profile.getProfile().getUtilities()
-        issues = self.latest_bid.getIssueValues()
-        for issue in issues:
-            value = utilities.get(issue).getUtility(issues.get(issue))
-            if val <= value <= max_val:
-                desired_value = issues.get(issue)
+        domain = self._profile.getProfile().getDomain().getValues(issue)
+        for v in domain:
+            value = utilities.get(issue).getUtility(v)
+            if val <= value and value <= max_val:
+                desired_value = v
                 max_val = value
-
         return desired_value
