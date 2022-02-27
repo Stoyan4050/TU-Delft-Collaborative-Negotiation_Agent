@@ -1,11 +1,9 @@
 import logging
-from random import randint
 from typing import cast
 
 from geniusweb.actions.Accept import Accept
 from geniusweb.actions.Action import Action
 from geniusweb.actions.Offer import Offer
-from geniusweb.actions.PartyId import PartyId
 from geniusweb.bidspace.AllBidsList import AllBidsList
 from geniusweb.inform.ActionDone import ActionDone
 from geniusweb.inform.Finished import Finished
@@ -13,19 +11,17 @@ from geniusweb.inform.Inform import Inform
 from geniusweb.inform.Settings import Settings
 from geniusweb.inform.YourTurn import YourTurn
 from geniusweb.issuevalue.Bid import Bid
-from geniusweb.issuevalue.Domain import Domain
-from geniusweb.issuevalue.Value import Value
-from geniusweb.issuevalue.ValueSet import ValueSet
 from geniusweb.party.Capabilities import Capabilities
 from geniusweb.party.DefaultParty import DefaultParty
-from geniusweb.profile.utilityspace.UtilitySpace import UtilitySpace
 from geniusweb.profileconnection.ProfileConnectionFactory import (
     ProfileConnectionFactory,
 )
 from geniusweb.progress.ProgressRounds import ProgressRounds
 
+# Agent Gosho e div selqnin i pravi nqkvi shano oferti koito ne rabotqt
+# osven ako drugiq agent ne e po prost selqnin ot Gosho
 
-class TemplateAgent(DefaultParty):
+class AgentGosho(DefaultParty):
     """
     Template agent that offers random bids until a bid with sufficient utility is offered.
     """
@@ -35,6 +31,7 @@ class TemplateAgent(DefaultParty):
         self.getReporter().log(logging.INFO, "party is initialized")
         self._profile = None
         self._last_received_bid: Bid = None
+        self.latest_bid: Bid = None
 
     def notifyChange(self, info: Inform):
         """This is the entry point of all interaction with your agent after is has been initialised.
@@ -115,6 +112,7 @@ class TemplateAgent(DefaultParty):
             # if not, find a bid to propose as counter offer
             bid = self._findBid()
             action = Offer(self._me, bid)
+            self.latest_bid = bid
 
         # send the action
         self.getConnection().send(action)
@@ -123,12 +121,26 @@ class TemplateAgent(DefaultParty):
     def _isGood(self, bid: Bid) -> bool:
         if bid is None:
             return False
+
+        if self.latest_bid is None:
+            self.latest_bid = self.get_highest_bid()
+
         profile = self._profile.getProfile()
 
-        progress = self._progress.get(0)
+
+        bid_utility_sent = profile.getUtility(self.latest_bid)
+        bid_utility_received = profile.getUtility(bid)
+
+        if bid_utility_received >= 0.95 * float(bid_utility_sent):
+            print("Accepted Bid-----------------------------1", bid)
+            return True
+        elif bid_utility_received >= 0.9 * float(bid_utility_sent):
+            print("Accepted Bid-----------------------------2", bid)
+            return True
 
         # very basic approach that accepts if the offer is valued above 0.6 and
         # 80% of the rounds towards the deadline have passed
+<<<<<<< HEAD:agents/template_agent/template_agent.py
         #return profile.getUtility(bid) > 0.6 and progress > 0.8
 
         if profile.getUtility(bid) > 0.9:
@@ -140,16 +152,70 @@ class TemplateAgent(DefaultParty):
         elif self._last_received_bid is not None and (0.8 - float(profile.getUtility(self._last_received_bid))*0.1 <= profile.getUtility(bid) or profile.getUtility(bid) >= 0.7):
                 return True
 
+=======
+>>>>>>> gosho:agents/template_agent/agent_gosho.py
         return False
 
     def _findBid(self) -> Bid:
         # compose a list of all possible bids
         domain = self._profile.getProfile().getDomain()
+        progress = self._progress.get(0)
+
+        issues = domain.getIssues()
+        weights = []
+        not_important_issues = []
+        utilities = self._profile.getProfile().getUtilities()
+        for issue in issues:
+            weights.append(self._profile.getProfile().getWeight(issue))
+
+        for issue in issues:
+            w = self._profile.getProfile().getWeight(issue)
+            if w < 0.1 * float(max(weights)):
+                not_important_issues.append(issue)
+
+        print(not_important_issues, "Not important issues")
+        if self._last_received_bid is not None:
+            opponent_issues = self._last_received_bid.getIssueValues()
+            last_values = self.latest_bid.getIssueValues()
+
+            bid_issues = {}
+            for issue in opponent_issues:
+                value = opponent_issues.get(issue)
+                if issue in not_important_issues and float(utilities.get(issue).getUtility(opponent_issues.get(issue))) < 0.5:
+                    bid_issues[issue] = value
+                else:
+                    suggested_val = (1-progress/3) * float(utilities.get(issue).getUtility(last_values.get(issue)))
+                    bid_issues[issue] = self.search_for_value(suggested_val, issue)
+
+            print(bid_issues, "Bidding")
+            bid = Bid(bid_issues)
+            print("Bid utility------------", self._profile.getProfile().getUtility(bid))
+        else:
+            self.latest_bid = self.get_highest_bid()
+            bid = self.get_highest_bid()
+
+        return bid
+
+    def get_highest_bid(self):
+        domain = self._profile.getProfile().getDomain()
         all_bids = AllBidsList(domain)
 
-        # take 50 attempts at finding a random bid that is acceptable to us
-        for _ in range(50):
-            bid = all_bids.get(randint(0, all_bids.size() - 1))
-            if self._isGood(bid):
-                break
-        return bid
+        bids_with_utility = []
+
+        for bid in all_bids:
+            bids_with_utility.append((bid, self._profile.getProfile().getUtility(bid)))
+
+        bids_with_utility = sorted(bids_with_utility, key=lambda item: -item[1])
+        return bids_with_utility[0][0]
+
+    def search_for_value(self, val, issue):
+        max_val = 1
+        desired_value = ""
+        utilities = self._profile.getProfile().getUtilities()
+        domain = self._profile.getProfile().getDomain().getValues(issue)
+        for v in domain:
+            value = utilities.get(issue).getUtility(v)
+            if val <= value and value <= max_val:
+                desired_value = v
+                max_val = value
+        return desired_value
