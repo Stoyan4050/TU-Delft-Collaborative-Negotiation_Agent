@@ -18,6 +18,7 @@ from geniusweb.profileconnection.ProfileConnectionFactory import (
 )
 from geniusweb.progress.ProgressRounds import ProgressRounds
 
+
 # Agent Gosho e div selqnin i pravi nqkvi shano oferti koito ne rabotqt
 # osven ako drugiq agent ne e po prost selqnin ot Gosho
 
@@ -32,6 +33,7 @@ class AgentGosho(DefaultParty):
         self._profile = None
         self._last_received_bid: Bid = None
         self.latest_bid: Bid = None
+        self.all_bids = []
 
     def notifyChange(self, info: Inform):
         """This is the entry point of all interaction with your agent after is has been initialised.
@@ -104,12 +106,15 @@ class AgentGosho(DefaultParty):
 
     # execute a turn
     def _myTurn(self):
+        profile = self._profile.getProfile()
         # check if the last received offer if the opponent is good enough
         if self._isGood(self._last_received_bid):
             # if so, accept the offer
             action = Accept(self._me, self._last_received_bid)
         else:
             # if not, find a bid to propose as counter offer
+            self.all_bids.append((self._last_received_bid, profile.getUtility(self._last_received_bid)))
+
             bid = self._findBid()
             action = Offer(self._me, bid)
             self.latest_bid = bid
@@ -127,50 +132,46 @@ class AgentGosho(DefaultParty):
 
         profile = self._profile.getProfile()
 
-
         bid_utility_sent = profile.getUtility(self.latest_bid)
         bid_utility_received = profile.getUtility(bid)
 
         if bid_utility_received >= 0.95 * float(bid_utility_sent):
             print("Accepted Bid-----------------------------1", bid)
             return True
-        elif bid_utility_received >= 0.9 * float(bid_utility_sent):
-            print("Accepted Bid-----------------------------2", bid)
-            return True
+        # elif bid_utility_received >= 0.9 * float(bid_utility_sent):
+        #     print("Accepted Bid-----------------------------2", bid)
+        #     return True
 
         # very basic approach that accepts if the offer is valued above 0.6 and
         # 80% of the rounds towards the deadline have passed
         return False
 
     def _findBid(self) -> Bid:
-        # compose a list of all possible bids
-        domain = self._profile.getProfile().getDomain()
         progress = self._progress.get(0)
+        opponent_desired_bid = self.get_opponent_info()
 
-        issues = domain.getIssues()
-        weights = []
-        not_important_issues = []
+        # All utility values
         utilities = self._profile.getProfile().getUtilities()
-        for issue in issues:
-            weights.append(self._profile.getProfile().getWeight(issue))
 
-        for issue in issues:
-            w = self._profile.getProfile().getWeight(issue)
-            if w < 0.1 * float(max(weights)):
-                not_important_issues.append(issue)
-
+        not_important_issues, middle_issues = self.not_important_issues()
         print(not_important_issues, "Not important issues")
+        print(middle_issues, "Middle issues")
+
         if self._last_received_bid is not None:
+            # Values for issues
             opponent_issues = self._last_received_bid.getIssueValues()
             last_values = self.latest_bid.getIssueValues()
 
             bid_issues = {}
             for issue in opponent_issues:
-                value = opponent_issues.get(issue)
-                if issue in not_important_issues and float(utilities.get(issue).getUtility(opponent_issues.get(issue))) < 0.5:
-                    bid_issues[issue] = value
+                # get the value for issue
+                # value = opponent_issues.get(issue)
+                # float(utilities.get(issue).getUtility(opponent_issues.get(issue))) < 0.5:
+
+                if issue in not_important_issues and opponent_desired_bid is not None:
+                    bid_issues[issue] = opponent_desired_bid[issue]
                 else:
-                    suggested_val = (1-progress/3) * float(utilities.get(issue).getUtility(last_values.get(issue)))
+                    suggested_val = (1 - progress / 3) * float(utilities.get(issue).getUtility(last_values.get(issue)))
                     bid_issues[issue] = self.search_for_value(suggested_val, issue)
 
             print(bid_issues, "Bidding")
@@ -205,3 +206,49 @@ class AgentGosho(DefaultParty):
                 desired_value = v
                 max_val = value
         return desired_value
+
+    def get_opponent_info(self):
+        prev_bids = self.all_bids
+
+        if len(prev_bids) < 10:
+            return None
+
+        prev_bids.sort(key=lambda x: x[1])
+        issues = self._last_received_bid.getIssues()
+
+        demanded_best_offer = {}
+        for issue in issues:
+            issue_value_opponent = {}
+            for i in range(5):
+                bid = prev_bids[i][0]
+                val = bid.getValue(issue)
+                if val in issue_value_opponent:
+                    issue_value_opponent[val] = issue_value_opponent[val] + 1
+                else:
+                    issue_value_opponent[val] = 1
+
+            sorted_dict = dict(sorted(issue_value_opponent.items(), key=lambda item: item[1]))
+            opponent_val = list(sorted_dict.keys())[-1]
+            demanded_best_offer[issue] = opponent_val
+
+        return demanded_best_offer
+
+    def not_important_issues(self):
+        domain = self._profile.getProfile().getDomain()
+        issues = domain.getIssues()
+        weights = []
+        not_important_issues = []
+        middle_issues = []
+
+        for issue in issues:
+            # Weight by issue
+            weights.append(self._profile.getProfile().getWeight(issue))
+
+        for issue in issues:
+            w = self._profile.getProfile().getWeight(issue)
+            if w < 0.15 * float(max(weights)):
+                not_important_issues.append(issue)
+            elif w < 0.5 * float(max(weights)):
+                middle_issues.append(issue)
+
+        return not_important_issues, middle_issues
