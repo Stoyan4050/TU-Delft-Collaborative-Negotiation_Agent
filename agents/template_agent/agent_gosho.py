@@ -144,6 +144,8 @@ class AgentGosho(DefaultParty):
             bid = self._findBid()
             action = Offer(self._me, bid)
             self.latest_bid = bid
+            if self._last_received_bid is not None:
+                self.all_bids.append((self._last_received_bid, profile.getUtility(self._last_received_bid)))
 
         # send the action
         self.getConnection().send(action)
@@ -262,8 +264,7 @@ class AgentGosho(DefaultParty):
 
     def get_opponent_info(self):
         prev_bids = self.all_bids
-        # print('prev_bids', prev_bids)
-        if len(prev_bids) < 15:
+        if len(prev_bids) < 2:
             return None
 
         # prev_bids.sort(key=lambda x: x[1])
@@ -272,7 +273,7 @@ class AgentGosho(DefaultParty):
         demanded_best_offer = {}
         for issue in issues:
             issue_value_opponent = {}
-            for i in range(5):
+            for i in range(len(prev_bids)):
                 bid = prev_bids[i][0]
                 val = bid.getValue(issue)
                 if val in issue_value_opponent:
