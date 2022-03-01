@@ -155,8 +155,8 @@ class AgentBatGosho(DefaultParty):
         utilities = self._profile.getProfile().getUtilities()
 
         not_important_issues, middle_issues = self.not_important_issues()
-        print(not_important_issues, "Not important issues")
-        print(middle_issues, "Middle issues")
+        # print(not_important_issues, "Not important issues")
+        # print(middle_issues, "Middle issues")
 
         if self._last_received_bid is not None:
             # Values for issues
@@ -175,9 +175,9 @@ class AgentBatGosho(DefaultParty):
                     suggested_val = (1 - progress/3) * float(utilities.get(issue).getUtility(last_values.get(issue)))
                     bid_issues[issue] = self.search_for_value(suggested_val, issue)
 
-            print(bid_issues, "Bidding")
+            # print(bid_issues, "Bidding")
             bid = Bid(bid_issues)
-            print("Bid utility------------", self._profile.getProfile().getUtility(bid))
+            # print("Bid utility------------", self._profile.getProfile().getUtility(bid))
         else:
             self.latest_bid = self.get_highest_bid()
             bid = self.get_highest_bid()

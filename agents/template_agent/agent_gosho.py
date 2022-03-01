@@ -145,7 +145,7 @@ class AgentGosho(DefaultParty):
             if self._last_received_bid is not None:
                 self.all_bids.append((self._last_received_bid, profile.getUtility(self._last_received_bid)))
 
-        print(action)
+        # print(action)
         # send the action
         self.getConnection().send(action)
 
@@ -159,16 +159,22 @@ class AgentGosho(DefaultParty):
 
         profile = self._profile.getProfile()
         progress = self._progress.get(0)
+        # float(profile.getUtility(self.latest_bid))*(1-progress/10)
 
-        if profile.getUtility(bid) > 0.9:
+        if progress < 0.85:
+            if float(profile.getUtility(bid)) > 1-progress/4.5:
+                return True
+        elif progress < 0.95:
+            if float(profile.getUtility(bid)) > 1 - progress/2.8:
+                return True
+        elif progress < 0.99:
+            if float(profile.getUtility(bid)) > 1 - progress/1.8:
+                return True
+        else:
             return True
 
-        if progress > 0.6:
-            if profile.getUtility(bid) > 0.95 - 0.3 * progress:
-                return True
-        elif self._last_received_bid is not None and (0.8 - float(profile.getUtility(self._last_received_bid))*0.1 <= profile.getUtility(bid) or profile.getUtility(bid) >= 0.7):
-                return True
         return False
+
 
     def find_all_good_bids(self):
         domain = self._profile.getProfile().getDomain()
