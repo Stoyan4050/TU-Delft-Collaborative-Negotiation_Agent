@@ -1,5 +1,6 @@
 import logging
 from typing import cast
+from math import *
 
 from geniusweb.actions.Accept import Accept
 from geniusweb.actions.Action import Action
@@ -149,6 +150,20 @@ class AgentGosho(DefaultParty):
         # send the action
         self.getConnection().send(action)
 
+
+    def sigmoid(self, x):
+        return - 1/(1 + exp(-10*x + 10)) + 0.85
+
+
+    def _isGoodSigmoid(self, bid: Bid) -> bool:
+
+        profile = self._profile.getProfile()
+        progress = self._progress.get(0)
+
+        if float(profile.getUtility(bid)) > self.sigmoid(progress):
+            return True
+        return False
+
     # method that checks if we would agree with an offer
     def _isGood(self, bid: Bid) -> bool:
         if bid is None:
@@ -160,6 +175,7 @@ class AgentGosho(DefaultParty):
         profile = self._profile.getProfile()
         progress = self._progress.get(0)
         # float(profile.getUtility(self.latest_bid))*(1-progress/10)
+        # print(float(profile.getUtility(bid)), self.sigmoid(progress))
 
         if progress < 0.85:
             if float(profile.getUtility(bid)) > 1-progress/4.5:
