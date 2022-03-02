@@ -117,23 +117,28 @@ class AgentGosho(DefaultParty):
         for issue in lrb.getIssues():
             self.opponent_value_count[issue][lrb.getValue(issue)] += 1
 
+    # Initial setup
+    def init(self):
+        profile = self._profile.getProfile()
+
+        self.get_not_important_issues()
+
+        issues = profile.getDomain().getIssues()
+        for issue in issues:
+            self.opponent_value_count[issue] = {}
+            for value in profile.getDomain().getValues(issue):
+                self.opponent_value_count[issue][value] = 0
+
+        self.order_bids()
     # execute a turn
     def _myTurn(self):
         profile = self._profile.getProfile()
 
         # Initial setup
         if self._progress.get(0) == 0:
+            self.init()
 
-            self.get_not_important_issues()
-
-            issues = profile.getDomain().getIssues()
-            for issue in issues:
-                self.opponent_value_count[issue] = {}
-                for value in profile.getDomain().getValues(issue):
-                    self.opponent_value_count[issue][value] = 0
-
-            self.order_bids()
-            print('sorted bids', self.all_available_bids_sorted[0])
+            # print('sorted bids', self.all_available_bids_sorted[0])
 
         if self._last_received_bid is not None:
             # We update the count for each value for each issue of our opponent
@@ -172,26 +177,27 @@ class AgentGosho(DefaultParty):
         if bid is None:
             return False
 
-        if self.latest_bid is None:
-            self.latest_bid = self.get_highest_bid()
+        progress = self._progress.get(0)
+        profile = self._profile.getProfile()
 
-        return self._isGoodSigmoid(bid)
-        # float(profile.getUtility(self.latest_bid))*(1-progress/10)
-        # print(float(profile.getUtility(bid)), self.sigmoid(progress))
+        if progress < 0.85:
+            if float(profile.getUtility(bid)) > 1-progress/4.5:
+                return True
+        elif progress < 0.95:
+            if float(profile.getUtility(bid)) > 1 - progress/2.8:
+                return True
+        elif progress < 0.99:
+            if float(profile.getUtility(bid)) > 1 - progress/1.8:
+                return True
+        else:
+            return True
 
-        # if progress < 0.85:
-        #     if float(profile.getUtility(bid)) > 1-progress/4.5:
-        #         return True
-        # elif progress < 0.95:
-        #     if float(profile.getUtility(bid)) > 1 - progress/2.8:
-        #         return True
-        # elif progress < 0.99:
-        #     if float(profile.getUtility(bid)) > 1 - progress/1.8:
-        #         return True
-        # else:
-        #     return True
+        return False
 
-        # return False
+        # if self.latest_bid is None:
+        #     self.latest_bid = self.get_highest_bid()
+        #
+        # return self._isGoodSigmoid(bid)
 
     def find_all_good_bids(self):
         domain = self._profile.getProfile().getDomain()
@@ -203,15 +209,18 @@ class AgentGosho(DefaultParty):
 
     def _findBid(self) -> Bid:
         bid_offer = None
-        for bid, _ in self.get_all_suitable_bids():
-            # print('kek')
-            if bid not in self.all_previously_offered_bids:
-                self.all_previously_offered_bids.append(bid)
-                bid_offer = bid
-                break
-        # print('stoyan bid', bid_offer)
-        # print('my bid', self.get_suitable_bid())
-        # bid_offer = self.get_suitable_bid()[0][0]
+        # for bid, _ in self.get_all_suitable_bids():
+        #     if bid not in self.all_previously_offered_bids:
+        #         self.all_previously_offered_bids.append(bid)
+        #         bid_offer = bid
+        #         break
+        # if bid_offer is not None:
+        #     print('stoyan bid', bid_offer, self._profile.getProfile().getUtility(bid_offer))
+        #     print('my bid', self.get_suitable_bid())
+
+        bid_offer = self.get_suitable_bid()[0][0]
+        if bid_offer is not None:
+            self.all_previously_offered_bids.append(bid_offer)
         if bid_offer is None:
             # When we have not offered a bid, offer highest preference
             if len(self.all_previously_offered_bids) == 0:
