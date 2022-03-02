@@ -41,6 +41,7 @@ class AgentGosho(DefaultParty):
         self.all_previously_offered_bids = []
         self.not_important_issues = []
         self.middle_issues = []
+        self.all_available_bids_sorted = []
 
     def notifyChange(self, info: Inform):
         """This is the entry point of all interaction with your agent after is has been initialised.
@@ -131,6 +132,8 @@ class AgentGosho(DefaultParty):
                 for value in profile.getDomain().getValues(issue):
                     self.opponent_value_count[issue][value] = 0
 
+            self.order_bids()
+            print('sorted bids', self.all_available_bids_sorted[0])
 
         if self._last_received_bid is not None:
             # We update the count for each value for each issue of our opponent
@@ -150,9 +153,8 @@ class AgentGosho(DefaultParty):
         # send the action
         self.getConnection().send(action)
 
-
     def sigmoid(self, x):
-        return - 1/(1 + exp(-5*x + 5)) + 0.95
+        return - 1 / (1 + exp(-5 * x + 5)) + 0.95
 
     def _isGoodSigmoid(self, bid: Bid) -> bool:
         if bid is None:
@@ -202,11 +204,14 @@ class AgentGosho(DefaultParty):
     def _findBid(self) -> Bid:
         bid_offer = None
         for bid, _ in self.get_all_suitable_bids():
+            # print('kek')
             if bid not in self.all_previously_offered_bids:
                 self.all_previously_offered_bids.append(bid)
                 bid_offer = bid
                 break
-
+        # print('stoyan bid', bid_offer)
+        # print('my bid', self.get_suitable_bid())
+        # bid_offer = self.get_suitable_bid()[0][0]
         if bid_offer is None:
             # When we have not offered a bid, offer highest preference
             if len(self.all_previously_offered_bids) == 0:
@@ -223,6 +228,30 @@ class AgentGosho(DefaultParty):
 
         return bid
 
+    def get_suitable_bid(self):
+        all_bids = self.all_available_bids_sorted
+
+        opponent_desired_bid = self.get_opponent_info_good()
+        not_important_issues = self.not_important_issues
+
+        chosen_bid = None
+        chosen_bid_utility = None
+
+        for bid, bid_utility in all_bids:
+            counter = 0
+            if bid not in self.all_previously_offered_bids:
+                if opponent_desired_bid is not None:
+                    for not_important_issue in not_important_issues:
+                        if bid.getIssueValues().get(not_important_issue) == opponent_desired_bid.get(not_important_issue):
+                            counter += 1
+
+                if (opponent_desired_bid is not None or counter == len(not_important_issues)) and self._isGood(bid):
+                    chosen_bid = bid
+                    chosen_bid_utility = bid_utility
+                    break
+
+        return [(chosen_bid, chosen_bid_utility)]
+
     def get_all_suitable_bids(self):
         domain = self._profile.getProfile().getDomain()
         all_bids = AllBidsList(domain)
@@ -238,7 +267,7 @@ class AgentGosho(DefaultParty):
                 for not_important_issue in not_important_issues:
                     if bid.getIssueValues().get(not_important_issue) == opponent_desired_bid.get(not_important_issue):
                         counter += 1
-            
+
             if (opponent_desired_bid is not None or counter == len(not_important_issues)) and self._isGood(bid):
                 bids_with_utility.append((bid, self._profile.getProfile().getUtility(bid)))
 
@@ -252,6 +281,18 @@ class AgentGosho(DefaultParty):
                     return False
             return True
         return False
+
+    def order_bids(self):
+        domain = self._profile.getProfile().getDomain()
+        all_bids = AllBidsList(domain)
+
+        bids_with_utility = []
+
+        for bid in all_bids:
+            bids_with_utility.append((bid, self._profile.getProfile().getUtility(bid)))
+
+        bids_with_utility = sorted(bids_with_utility, key=lambda item: -item[1])
+        self.all_available_bids_sorted = bids_with_utility
 
     def get_highest_bid(self):
         domain = self._profile.getProfile().getDomain()
