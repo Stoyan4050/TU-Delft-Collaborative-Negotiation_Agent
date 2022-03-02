@@ -39,6 +39,8 @@ class AgentGosho(DefaultParty):
         self.opponent_value_count = {}
         self.all_good_bids = []
         self.all_previously_offered_bids = []
+        self.not_important_issues = []
+        self.middle_issues = []
 
     def notifyChange(self, info: Inform):
         """This is the entry point of all interaction with your agent after is has been initialised.
@@ -111,24 +113,28 @@ class AgentGosho(DefaultParty):
 
     def update_opponent_counts(self):
         lrb = self._last_received_bid
-        domain = self._profile.getProfile().getDomain()
-        # for issue in lrb.getIssues():
-        #     self.opponent_value_count[issue][lrb.getValue(issue)] += 1
+        for issue in lrb.getIssues():
+            self.opponent_value_count[issue][lrb.getValue(issue)] += 1
 
     # execute a turn
     def _myTurn(self):
         profile = self._profile.getProfile()
 
-        # # Initial setup
-        # if self._progress.get(0) == 0:
-        #     issues = profile.getDomain().getIssues()
-        #     for issue in issues:
-        #         self.opponent_value_count[issue] = {}
-        #         for value in profile.getDomain().getValues(issue):
-        #             self.opponent_value_count[issue][value] = 0
+        # Initial setup
+        if self._progress.get(0) == 0:
 
-        # if self._last_received_bid is not None:
-        #     self.update_opponent_counts()
+            self.get_not_important_issues()
+
+            issues = profile.getDomain().getIssues()
+            for issue in issues:
+                self.opponent_value_count[issue] = {}
+                for value in profile.getDomain().getValues(issue):
+                    self.opponent_value_count[issue][value] = 0
+
+
+        # We update the count for each value for each issue of our opponent
+        if self._last_received_bid is not None:
+            self.update_opponent_counts()
 
         # print(self.is_opponent_repeating_bids())
 
@@ -154,8 +160,9 @@ class AgentGosho(DefaultParty):
     def sigmoid(self, x):
         return - 1/(1 + exp(-10*x + 10)) + 0.85
 
-
     def _isGoodSigmoid(self, bid: Bid) -> bool:
+        if bid is None:
+            return False
 
         profile = self._profile.getProfile()
         progress = self._progress.get(0)
@@ -191,7 +198,6 @@ class AgentGosho(DefaultParty):
 
         return False
 
-
     def find_all_good_bids(self):
         domain = self._profile.getProfile().getDomain()
         all_bids = AllBidsList(domain)
@@ -201,20 +207,6 @@ class AgentGosho(DefaultParty):
                 self.all_good_bids.append(bid)
 
     def _findBid(self) -> Bid:
-        progress = self._progress.get(0)
-        opponent_desired_bid = self.get_opponent_info()
-
-        # All utility values
-        utilities = self._profile.getProfile().getUtilities()
-
-        not_important_issues, middle_issues = self.not_important_issues()
-       
-        # suggested_val = (1 - progress / 3) * float(utilities.get(issue).getUtility(last_values.get(issue)))
-        # prev_bid_issue_value = bid_issues[issue]
-        # bid_issues[issue] = self.search_for_value(suggested_val, issue)
-        # if not self._isGood(Bid(bid_issues)):
-        #     bid_issues[issue] = prev_bid_issue_value
-        # print(bid_issues, "Bidding")
         bid_offer = None
         for bid, _ in self.get_all_suitable_bids():
             if bid not in self.all_previously_offered_bids:
@@ -222,6 +214,7 @@ class AgentGosho(DefaultParty):
                 bid_offer = bid
 
         if bid_offer is None:
+            # When we have not offered a bid, offer highest preference
             if len(self.all_previously_offered_bids) == 0:
                 bid = self.get_highest_bid()
             else:
@@ -232,7 +225,6 @@ class AgentGosho(DefaultParty):
         else:
             bid = bid_offer
         print("Bid utility------------", self._profile.getProfile().getUtility(bid))
-        # When we have not received a bid, offer highest preference
 
         return bid
 
@@ -240,8 +232,8 @@ class AgentGosho(DefaultParty):
         domain = self._profile.getProfile().getDomain()
         all_bids = AllBidsList(domain)
 
-        opponent_desired_bid = self.get_opponent_info()
-        not_important_issues,_ = self.not_important_issues()
+        opponent_desired_bid = self.get_opponent_info_good()
+        not_important_issues = self.not_important_issues
 
         bids_with_utility = []
 
@@ -319,10 +311,31 @@ class AgentGosho(DefaultParty):
             sorted_dict = dict(sorted(issue_value_opponent.items(), key=lambda item: item[1]))
             opponent_val = list(sorted_dict.keys())[-1]
             demanded_best_offer[issue] = opponent_val
+        # print(demanded_best_offer)
+        return demanded_best_offer
+
+    # Returns a dictionary where the keys are the issues
+    # and the values are the most often occurring value for this issue
+    def get_opponent_info_good(self):
+        # If we have too few of our opponent's bids, return nothing
+        if len(self.all_bids) < 2:
+            return None
+
+        issues = self._profile.getProfile().getDomain().getIssues()
+
+        opponent_counts = self.opponent_value_count
+        demanded_best_offer = {}
+
+        # For each issue, sort by the number of occurrences of each value and take the highest
+        for issue in issues:
+            opponent_values = opponent_counts[issue]
+            sorted_dict = dict(sorted(opponent_values.items(), key=lambda item: item[1]))
+            opponent_val = list(sorted_dict.keys())[-1]
+            demanded_best_offer[issue] = opponent_val
 
         return demanded_best_offer
 
-    def not_important_issues(self):
+    def get_not_important_issues(self):
         domain = self._profile.getProfile().getDomain()
         issues = domain.getIssues()
         weights = []
@@ -339,5 +352,6 @@ class AgentGosho(DefaultParty):
                 not_important_issues.append(issue)
             elif w < 0.5 * float(max(weights)):
                 middle_issues.append(issue)
-
+        self.not_important_issues = not_important_issues
+        self.middle_issues = middle_issues
         return not_important_issues, middle_issues
