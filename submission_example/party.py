@@ -1,4 +1,4 @@
-from random_agent.random_agent import RandomAgent
+from Group3_NegotiationAssignment_Agent import Group3_NegotiationAssignment_Agent
 
 def party():
-    return RandomAgent
+    return Group3_NegotiationAssignment_Agent

@@ -3,7 +3,7 @@ from setuptools import setup
 
 # provide the name of your agent in snake_case below
 # the directory containing the agent Python files should have the same name
-NAME = "random_agent"
+NAME = "Group3_NegotiationAssignment_Agent"
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -12,8 +12,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name=NAME,
     version="1.1.4",  # version corresponding with geniusweb version
-    author="Foo Bar, Bar Foo",  # add the names of your project group members
-    description="A python3 agent that places random bids with sufficient utility",  # give a short description of your agent
+    author="Group 27 - Atanas Pashov, Ivan Stranski, Marko Ivanov, Stoyan Dimitrov",  # add the names of your project group members
+    description="Agent that offers bids based on opponent modelling until an agreement is reached.",  # give a short description of your agent
     long_description=long_description,  # the `README.md` file serves as a long description
     install_requires=[
         "geniusweb@https://tracinsy.ewi.tudelft.nl/pubtrac/GeniusWebPython/export/83/geniuswebcore/dist/geniusweb-1.1.4.tar.gz",
