@@ -20,12 +20,9 @@ from geniusweb.profileconnection.ProfileConnectionFactory import (
 from geniusweb.progress.ProgressRounds import ProgressRounds
 
 
-# Agent Gosho e div selqnin i pravi nqkvi shano oferti koito ne rabotqt
-# osven ako drugiq agent ne e po prost selqnin ot Gosho
-
 class AgentGosho(DefaultParty):
     """
-    Template agent that offers random bids until a bid with sufficient utility is offered.
+    Agent that offers bids based on opponent modeling until an agreement is reached.
     """
 
     def __init__(self):
@@ -130,6 +127,7 @@ class AgentGosho(DefaultParty):
                 self.opponent_value_count[issue][value] = 0
 
         self.order_bids()
+
     # execute a turn
     def _myTurn(self):
         profile = self._profile.getProfile()
@@ -141,26 +139,40 @@ class AgentGosho(DefaultParty):
             # print('sorted bids', self.all_available_bids_sorted[0])
 
         if self._last_received_bid is not None:
-            # We update the count for each value for each issue of our opponent
+            """ We update the count for each value for each issue of our opponent """
             self.update_opponent_counts()
-            # We update the list of all issues sent by our opponent
+            """ We update the list of all issues sent by our opponent """
             self.all_bids.append((self._last_received_bid, profile.getUtility(self._last_received_bid)))
 
         if self._isGood(self._last_received_bid):
-            # if so, accept the offer
+            """ if so, accept the offer """
             action = Accept(self._me, self._last_received_bid)
         else:
-            # if not, find a bid to propose as counter offer
+            """ if not, find a bid to propose as counter offer """
             bid = self._findBid()
             action = Offer(self._me, bid)
             self.latest_bid = bid
 
-        # send the action
+        """ send the action """
         self.getConnection().send(action)
 
+    """ 
+        Sigmoid function
+        
+        Parameters
+        ----------
+        x: negotiation progress
+    """
     def sigmoid(self, x):
         return - 1 / (1 + exp(-5 * x + 5)) + 0.95
 
+    """ 
+        Method for deciding whether an offer is good based on a sigmoid function 
+        
+        Parameters
+        ----------
+        bid: the offer that is received/ to be send    
+    """
     def _isGoodSigmoid(self, bid: Bid) -> bool:
         if bid is None:
             return False
@@ -172,7 +184,13 @@ class AgentGosho(DefaultParty):
             return True
         return False
 
-    # method that checks if we would agree with an offer
+    """
+        Method that decides whether an offer is good or not
+        
+        Parameters
+        ----------
+        bid: the offer that is received/ to be send
+    """
     def _isGood(self, bid: Bid) -> bool:
         if bid is None:
             return False
@@ -181,13 +199,13 @@ class AgentGosho(DefaultParty):
         profile = self._profile.getProfile()
 
         if progress < 0.85:
-            if float(profile.getUtility(bid)) > 1-progress/4.5:
+            if float(profile.getUtility(bid)) > 1 - progress / 4.5:
                 return True
         elif progress < 0.95:
-            if float(profile.getUtility(bid)) > 1 - progress/2.8:
+            if float(profile.getUtility(bid)) > 1 - progress / 2.8:
                 return True
         elif progress < 0.99:
-            if float(profile.getUtility(bid)) > 1 - progress/1.8:
+            if float(profile.getUtility(bid)) > 1 - progress / 1.8:
                 return True
         else:
             return True
@@ -199,6 +217,9 @@ class AgentGosho(DefaultParty):
         #
         # return self._isGoodSigmoid(bid)
 
+    """
+        Finds the good bids from all bids.
+    """
     def find_all_good_bids(self):
         domain = self._profile.getProfile().getDomain()
         all_bids = AllBidsList(domain)
@@ -222,12 +243,12 @@ class AgentGosho(DefaultParty):
         if bid_offer is not None:
             self.all_previously_offered_bids.append(bid_offer)
         if bid_offer is None:
-            # When we have not offered a bid, offer highest preference
+            """ When we have not offered a bid, offer highest preference """
             if len(self.all_previously_offered_bids) == 0:
                 bid = self.get_highest_bid()
             else:
-                # since no new good offers are available, start offering what we have already offered before
-                # (starting from the best available offers)
+                """  since no new good offers are available, start offering what we have already offered before
+                (starting from the best available offers) """
                 bid = self.all_previously_offered_bids.pop(0)
                 self.all_previously_offered_bids.append(bid)
                 print('oki')
@@ -237,6 +258,10 @@ class AgentGosho(DefaultParty):
 
         return bid
 
+    """
+        Selects a favorable bid for the opponent based on issues that are not important to us, 
+        but we consider them to be important fo the opponent.
+    """
     def get_suitable_bid(self):
         all_bids = self.all_available_bids_sorted
 
@@ -251,7 +276,8 @@ class AgentGosho(DefaultParty):
             if bid not in self.all_previously_offered_bids:
                 if opponent_desired_bid is not None:
                     for not_important_issue in not_important_issues:
-                        if bid.getIssueValues().get(not_important_issue) == opponent_desired_bid.get(not_important_issue):
+                        if bid.getIssueValues().get(not_important_issue) == opponent_desired_bid.get(
+                                not_important_issue):
                             counter += 1
 
                 if (opponent_desired_bid is not None or counter == len(not_important_issues)) and self._isGood(bid):
@@ -261,6 +287,10 @@ class AgentGosho(DefaultParty):
 
         return [(chosen_bid, chosen_bid_utility)]
 
+    """
+        Selects all favorable bids for the opponent based on issues that are not important to us, 
+        but we consider them to be important fo the opponent.
+    """
     def get_all_suitable_bids(self):
         domain = self._profile.getProfile().getDomain()
         all_bids = AllBidsList(domain)
@@ -283,6 +313,10 @@ class AgentGosho(DefaultParty):
         bids_with_utility = sorted(bids_with_utility, key=lambda item: -item[1])
         return bids_with_utility
 
+    """
+        Determines whether the opponent is repeating bids by checking 
+        if the last 5 offers are the same.
+    """
     def is_opponent_repeating_bids(self):
         if len(self.all_bids) >= 5:
             for i in range(1, 5):
@@ -291,6 +325,9 @@ class AgentGosho(DefaultParty):
             return True
         return False
 
+    """
+        Sorts all available bids on utility.
+    """
     def order_bids(self):
         domain = self._profile.getProfile().getDomain()
         all_bids = AllBidsList(domain)
@@ -303,6 +340,9 @@ class AgentGosho(DefaultParty):
         bids_with_utility = sorted(bids_with_utility, key=lambda item: -item[1])
         self.all_available_bids_sorted = bids_with_utility
 
+    """
+        Sorts all bids and selects the one with highest utility.
+    """
     def get_highest_bid(self):
         domain = self._profile.getProfile().getDomain()
         all_bids = AllBidsList(domain)
@@ -315,6 +355,10 @@ class AgentGosho(DefaultParty):
         bids_with_utility = sorted(bids_with_utility, key=lambda item: -item[1])
         return bids_with_utility[0][0]
 
+    """
+        Searches for the smallest utility that is in the range between an utility that we think
+        is appropriate and 1.
+    """
     def search_for_value(self, suggeseted_value_utility, issue):
         max_val = 1
         desired_value = ""
@@ -328,12 +372,19 @@ class AgentGosho(DefaultParty):
                 max_val = value_utility
         return desired_value
 
+    """
+        Adds the values of issues found in opponent's offer in a global object.
+    """
     def get_opponent_preference(self):
         first_bid = self.all_bids[0][0]
 
         for issue in first_bid.getIssues():
             self.opponent_preferences.append((issue, first_bid.getValue(issue)))
 
+    """
+        Counts the number of occurrences of each issue in opponent's bid, and
+        determines the best value for each issue
+    """
     def get_opponent_info(self):
         prev_bids = self.all_bids
         if len(prev_bids) < 2:
@@ -356,13 +407,15 @@ class AgentGosho(DefaultParty):
             sorted_dict = dict(sorted(issue_value_opponent.items(), key=lambda item: item[1]))
             opponent_val = list(sorted_dict.keys())[-1]
             demanded_best_offer[issue] = opponent_val
-        # print(demanded_best_offer)
+
         return demanded_best_offer
 
-    # Returns a dictionary where the keys are the issues
-    # and the values are the most often occurring value for this issue
+    """
+        Returns a dictionary where the keys are the issues
+        and the values are the most often occurring value for this issue
+    """
     def get_opponent_info_good(self):
-        # If we have too few of our opponent's bids, return nothing
+        """ If we have too few of our opponent's bids, return nothing """
         if len(self.all_bids) < 2:
             return None
 
@@ -371,7 +424,7 @@ class AgentGosho(DefaultParty):
         opponent_counts = self.opponent_value_count
         demanded_best_offer = {}
 
-        # For each issue, sort by the number of occurrences of each value and take the highest
+        """ For each issue, sort by the number of occurrences of each value and take the highest """
         for issue in issues:
             opponent_values = opponent_counts[issue]
             sorted_dict = dict(sorted(opponent_values.items(), key=lambda item: item[1]))
@@ -380,6 +433,10 @@ class AgentGosho(DefaultParty):
 
         return demanded_best_offer
 
+    """
+        Returns two arrays containing issues that are not important and issues that are somewhat
+        important respectively. 
+    """
     def get_not_important_issues(self):
         domain = self._profile.getProfile().getDomain()
         issues = domain.getIssues()
@@ -388,7 +445,7 @@ class AgentGosho(DefaultParty):
         middle_issues = []
 
         for issue in issues:
-            # Weight by issue
+            """ Weight by issue """
             weights.append(self._profile.getProfile().getWeight(issue))
 
         for issue in issues:

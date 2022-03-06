@@ -19,10 +19,6 @@ from geniusweb.profileconnection.ProfileConnectionFactory import (
 )
 from geniusweb.progress.ProgressRounds import ProgressRounds
 
-
-# Agent Gosho e div selqnin i pravi nqkvi shano oferti koito ne rabotqt
-# osven ako drugiq agent ne e po prost selqnin ot Gosho
-
 class AgentGosho(DefaultParty):
     """
     Template agent that offers random bids until a bid with sufficient utility is offered.
