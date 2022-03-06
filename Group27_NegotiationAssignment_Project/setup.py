@@ -3,7 +3,7 @@ from setuptools import setup
 
 # provide the name of your agent in snake_case below
 # the directory containing the agent Python files should have the same name
-NAME = "Group3_NegotiationAssignment_Agent"
+NAME = "Group27_NegotiationAssignment_Agent"
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()

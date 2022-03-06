@@ -19,7 +19,7 @@ from geniusweb.profileconnection.ProfileConnectionFactory import (
 from geniusweb.progress.ProgressRounds import ProgressRounds
 
 
-class Group3_NegotiationAssignment_Agent(DefaultParty):
+class Group27_NegotiationAssignment_Agent(DefaultParty):
     """
     Agent that offers bids based on opponent modelling until an agreement is reached.
     """
@@ -114,7 +114,7 @@ class Group3_NegotiationAssignment_Agent(DefaultParty):
         """ Determine which the not important issues are and save them """
         self.get_not_important_issues()
 
-        """ 
+        """
             Initialize dictionary where we store the count of each value for each issue in opponent's bids
             Used for opponent modelling
         """
@@ -212,7 +212,7 @@ class Group3_NegotiationAssignment_Agent(DefaultParty):
         return bid
 
     """
-        Selects a favorable bid for the opponent based on issues that are not important to us, 
+        Selects a favorable bid for the opponent based on issues that are not important to us,
         but we consider them to be important fo the opponent.
     """
 
@@ -299,7 +299,7 @@ class Group3_NegotiationAssignment_Agent(DefaultParty):
 
     """
         Returns two arrays containing issues that are not important and issues that are somewhat
-        important respectively. 
+        important respectively.
     """
 
     def get_not_important_issues(self):
